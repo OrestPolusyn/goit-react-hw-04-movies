@@ -1,55 +1,44 @@
 import React, { Component } from 'react';
-import Truncate from 'react-truncate';
-import PropTypes from 'prop-types';
-import { getReviews } from '../../services/api';
+import Loader from 'react-loader-spinner';
+import * as Api from '../../services/api';
+import { getIdFromProps } from '../../services/getIdFromProps';
 
-class Reviews extends Component {
+export default class Reviews extends Component {
   state = {
-    reviews: [],
-    isTruncated: false,
-  };
-
-  static propTypes = {
-    id: PropTypes.string.isRequired,
+    results: [],
+    isLoading: false,
+    error: null,
   };
 
   componentDidMount() {
-    const { id } = this.props;
-    getReviews(id).then(({ results }) => this.setState({ reviews: results }));
+    const id = getIdFromProps(this.props);
+    Api.getMoviesReviews(id)
+      .then(({ data }) => {
+        this.setState({ results: data.results });
+      })
+      .catch(error => this.setState({ error }))
+      .finally(() => this.setState({ isLoading: false }));
   }
 
-  toggleTruncate = truncated => {
-    this.setState({ isTruncated: !truncated });
-  };
-
   render() {
-    const { reviews, isTruncated } = this.state;
+    const { results, error, isLoading } = this.state;
     return (
-      <>
-        {reviews.length > 0 ? (
-          <ul className="reviews">
-            {reviews.map(({ author, content, id }) => (
-              <li key={id}>
-                <h3>{author}</h3>
-                <Truncate
-                  lines={isTruncated ? 10 : null}
-                  ellipsis={<span>...</span>}
-                  // onTruncate={this.toggleTruncate}
-                >
-                  {content}
-                </Truncate>
-                {/* <button type="button" onClick={this.toggleTruncate}>
-                  Show {isTruncated ? ' more' : ' less'}
-                </button> */}
+      <div>
+        {error && <p>Whoops, something went wrong: {error.message}</p>}
+        {isLoading && <Loader type="ThreeDots" color="#00BFFF" height={50} width={50} />}
+        {results.length ? (
+          <ul>
+            {results.map(item => (
+              <li key={item.id}>
+                <p>Author: {item.author}</p>
+                <p>{item.content}</p>
               </li>
             ))}
           </ul>
         ) : (
-          <p>There are no reviews yet</p>
+          <p>No reviews found</p>
         )}
-      </>
+      </div>
     );
   }
 }
-
-export default Reviews;

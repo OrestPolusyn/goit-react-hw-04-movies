@@ -1,27 +1,44 @@
 import React, { Component } from 'react';
-import PropTypes from 'prop-types';
-import Gallery from '../../components/Gallery/Gallery';
-import { getMovieCast } from '../../services/api';
+import Loader from 'react-loader-spinner';
+import * as Api from '../../services/api';
+import ActorCard from '../../components/ActorCard/ActorCard';
+import styles from './Cast.module.css';
+import { getIdFromProps } from '../../services/getIdFromProps';
 
-class Cast extends Component {
+export default class Cast extends Component {
   state = {
     cast: [],
-  };
-
-  static propTypes = {
-    id: PropTypes.string.isRequired,
+    isLoading: false,
+    error: null,
   };
 
   componentDidMount() {
-    const { id } = this.props;
-    getMovieCast(id).then(({ cast }) => this.setState({ cast }));
+    this.setState({ isLoading: true });
+    const id = getIdFromProps(this.props);
+    Api.getMoviesCast(id)
+      .then(({ data }) => {
+        this.setState({ cast: data.cast });
+      })
+      .catch(error => this.setState({ error }))
+      .finally(() => this.setState({ isLoading: false }));
   }
 
   render() {
-    const { cast } = this.state;
-
-    return <Gallery cast={cast} />;
+    const { cast, error, isLoading } = this.state;
+    return (
+      <div>
+        {error && <p>Whoops, something went wrong: {error.message}</p>}
+        {isLoading && <Loader type="ThreeDots" color="#00BFFF" height={50} width={50} />}
+        {!!cast.length && (
+          <ul className={styles.list}>
+            {cast.map(item => (
+              <li className={styles.listItem} key={item.cast_id} name="scroll-to-element">
+                <ActorCard cast={item} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
   }
 }
-
-export default Cast;

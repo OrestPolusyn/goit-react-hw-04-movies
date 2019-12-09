@@ -1,122 +1,72 @@
 import React, { Component } from 'react';
-import { Route, NavLink } from 'react-router-dom';
-import Loadable from 'react-loadable';
+import { Route } from 'react-router-dom';
+import Loader from 'react-loader-spinner';
 import PropTypes from 'prop-types';
-import { getMovieDetails } from '../../services/api';
-import styles from './MovieDetailsPage.module.css';
+import ButtonBack from '../../components/ButtonBack/ButtonBack';
+import Cast from '../Cast/Cast';
+import Reviews from '../Reviews/Reviews';
+import * as Api from '../../services/api';
+import MovieDetailsCard from '../../components/MovieDetailsCard/MovieDetailsCard';
+import MoreInfo from '../../components/MoreInfo/MoreInfo';
+import { getIdFromProps } from '../../services/getIdFromProps';
 
-const Cast = Loadable({
-  loader: () => import('../Cast/Cast' /* webpackChunkName: "cast-page" */),
-  loading() {
-    return <h2>Loading...</h2>;
-  },
-});
-
-const Reviews = Loadable({
-  loader: () =>
-    import('../Reviews/Reviews' /* webpackChunkName: "reviews-page" */),
-  loading() {
-    return <h2>Loading...</h2>;
-  },
-});
-
-class MovieDetailsPage extends Component {
-  state = {
-    currentMovie: {},
+export default class MovieDetailsPage extends Component {
+  static propTypes = {
+    history: PropTypes.shape({
+      push: PropTypes.func.isRequired,
+    }).isRequired,
+    match: PropTypes.shape({
+      path: PropTypes.string.isRequired,
+    }).isRequired,
+    location: PropTypes.shape({
+      state: PropTypes.shape({
+        from: PropTypes.object,
+      }),
+    }).isRequired,
   };
 
-  static propTypes = {
-    match: PropTypes.object.isRequired,
-    history: PropTypes.object.isRequired,
-    location: PropTypes.object.isRequired,
+  state = {
+    details: {},
+    isLoading: false,
+    error: null,
   };
 
   componentDidMount() {
-    this.getMovie();
+    this.setState({ isLoading: true });
+    const id = getIdFromProps(this.props);
+    Api.getMoviesDetails(id)
+      .then(({ data }) => {
+        this.setState({ details: data });
+      })
+      .catch(error => this.setState({ error }))
+      .finally(() => this.setState({ isLoading: false }));
   }
 
-  getMovie = () => {
-    const id = this.props.match.params.movieId;
-    getMovieDetails(id).then(
-      ({ poster_path, overview, release_date, title, tagline, vote_average }) =>
-        this.setState({
-          currentMovie: {
-            poster_path,
-            overview,
-            release_date,
-            title,
-            tagline,
-            vote_average,
-          },
-        }),
-    );
-  };
-
-  handleGoBackClick = () => {
-    const { location, history } = this.props;
-
-    location.state ? history.push(location.state.prevPage) : history.push('/');
+  handleGoback = () => {
+    const { history, location } = this.props;
+    if (location.state) {
+      return history.push(location.state.from);
+    }
+    return history.push('/');
   };
 
   render() {
-    const { currentMovie } = this.state;
-    const {
-      poster_path,
-      overview,
-      release_date,
-      title,
-      tagline,
-      vote_average,
-    } = currentMovie;
-    const { match } = this.props;
-    const { url, path, params } = match;
+    const { details, isLoading, error } = this.state;
+    const { match, location } = this.props;
     return (
-      <div className={styles.container}>
-        <h2 className={styles.title}>{title}</h2>
-        <img
-          className={styles.image}
-          src={`https://image.tmdb.org/t/p/original${poster_path}`}
-          height={700}
-          alt="movie poster"
-        />
-        <p className={styles.date}>{release_date}</p>
-        <p className={styles.tag}>{tagline}</p>
-        <p className={styles.vote}>{vote_average}</p>
-        <p className={styles.descr}>{overview}</p>
-        <div className={styles.links}>
-          <NavLink
-            className={styles.link}
-            activeClassName={styles.activeLink}
-            to={`${url}/cast`}
-          >
-            Cast
-          </NavLink>
-          <NavLink
-            className={styles.link}
-            activeClassName={styles.activeLink}
-            to={`${url}/reviews`}
-          >
-            Reviews
-          </NavLink>
-        </div>
-        <Route
-          path={`${path}/cast`}
-          render={props => <Cast {...props} id={params.movieId} />}
-        />
-        <Route
-          path={`${path}/reviews`}
-          render={props => <Reviews {...props} id={params.movieId} />}
-        />
-        <button
-          className={styles.btn}
-          onClick={this.handleGoBackClick}
-          type="button"
-        >
-          Back to all movies
-        </button>
+      <div>
+        <ButtonBack onGoback={this.handleGoback} />
+        {error && <p>Whoops, something went wrong: {error.message}</p>}
+        {isLoading && <Loader type="ThreeDots" color="#00BFFF" height={50} width={50} />}
+        {!!Object.keys(details).length && (
+          <div>
+            <MovieDetailsCard details={details} />
+            <MoreInfo details={details} location={location.state} />
+            <Route path={`${match.path}/cast`} component={Cast} />
+            <Route path={`${match.path}/reviews`} component={Reviews} />
+          </div>
+        )}
       </div>
     );
   }
 }
-
-export default MovieDetailsPage;
